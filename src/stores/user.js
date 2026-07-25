@@ -9,6 +9,8 @@ export const useUserStore = defineStore('user', () => {
   const isLoggedIn = computed(() => !!token.value)
 
   async function fetchProfile() {
+    // 游客无 token，直接跳过，避免无谓的 401 请求
+    if (!token.value) return
     try {
       const data = await getProfile()
       user.value = data
