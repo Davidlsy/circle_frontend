@@ -238,6 +238,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getRecommended, getPosts, likePost, collectPost } from '@/api/modules/posts'
 import { getFeed } from '@/api/modules/social'
+import { requireAuth } from '@/composables/useAuthGuard'
 
 const router = useRouter()
 const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNlOGU4ZTgiLz48Y2lyY2xlIGN4PSIyMCIgY3k9IjE1IiByPSI2IiBmaWxsPSIjYmNiY2JjIi8+PGVsbGlwc2UgY3g9IjIwIiBjeT0iMzMiIHJ4PSIxMiIgcnk9IjkiIGZpbGw9IiNiY2JjYmMiLz48L3N2Zz4='
@@ -292,6 +293,8 @@ function imageGridClass(count) {
 // 切换 Tab
 function switchTab(tab) {
   if (activeTab.value === tab) return
+  // 关注动态需登录
+  if (tab === 'following' && !requireAuth('/')) return
   activeTab.value = tab
   if (tab === 'following' && feedPosts.value.length === 0) {
     fetchFeed()
@@ -356,6 +359,8 @@ async function fetchFeed() {
 
 // 点赞
 async function toggleLike(post) {
+  // 游客拦截：不调用后端接口，弹登录引导
+  if (!requireAuth('/')) return
   const id = post.id
   if (likedSet.value.has(id)) {
     likedSet.value.delete(id)
@@ -372,6 +377,8 @@ async function toggleLike(post) {
 
 // 收藏
 async function toggleCollect(post) {
+  // 游客拦截：不调用后端接口，弹登录引导
+  if (!requireAuth('/')) return
   const id = post.id
   if (collectedSet.value.has(id)) {
     collectedSet.value.delete(id)

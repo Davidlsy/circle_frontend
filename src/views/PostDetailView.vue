@@ -176,16 +176,26 @@
       <div class="comment-input-wrapper">
         <input
           v-model="commentText"
-          :placeholder="replyTarget ? `回复 @${replyTarget.author?.username || '匿名用户'}` : '写评论...'"
+          :placeholder="isLoggedIn ? (replyTarget ? `回复 @${replyTarget.author?.username || '匿名用户'}` : '写评论...') : '登录后评论'"
+          :readonly="!isLoggedIn"
+          @focus="onCommentFocus"
           @keyup.enter="submitComment"
           ref="commentInputRef"
         />
         <button
+          v-if="isLoggedIn"
           class="comment-send-btn"
           :disabled="!commentText.trim() || submitting"
           @click="submitComment"
         >
           {{ submitting ? '发送中...' : '发送' }}
+        </button>
+        <button
+          v-else
+          class="comment-send-btn"
+          @click="requireAuth(route.fullPath)"
+        >
+          登录
         </button>
       </div>
     </div>
@@ -196,9 +206,13 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getPost, likePost, collectPost, getComments, addComment } from '@/api/modules/posts'
+import { useUserStore } from '@/stores/user'
+import { requireAuth } from '@/composables/useAuthGuard'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
+const isLoggedIn = computed(() => userStore.isLoggedIn)
 const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNlOGU4ZTgiLz48Y2lyY2xlIGN4PSIyMCIgY3k9IjE1IiByPSI2IiBmaWxsPSIjYmNiY2JjIi8+PGVsbGlwc2UgY3g9IjIwIiBjeT0iMzMiIHJ4PSIxMiIgcnk9IjkiIGZpbGw9IiNiY2JjYmMiLz48L3N2Zz4='
 
 // 帖子数据
@@ -309,6 +323,8 @@ async function fetchComments() {
 async function toggleLike() {
   const id = post.value?.id
   if (!id) return
+  // 游客拦截：不调用后端接口，弹登录引导
+  if (!requireAuth(route.fullPath)) return
 
   isLiked.value = !isLiked.value
   try {
@@ -323,6 +339,8 @@ async function toggleLike() {
 async function toggleCollect() {
   const id = post.value?.id
   if (!id) return
+  // 游客拦截：不调用后端接口，弹登录引导
+  if (!requireAuth(route.fullPath)) return
 
   isCollected.value = !isCollected.value
   try {
@@ -335,6 +353,8 @@ async function toggleCollect() {
 
 // 评论点赞
 function toggleCommentLike(comment) {
+  // 游客拦截
+  if (!requireAuth(route.fullPath)) return
   const id = comment.id
   if (commentLikedSet.value.has(id)) {
     commentLikedSet.value.delete(id)
@@ -345,16 +365,28 @@ function toggleCommentLike(comment) {
 
 // 设置回复目标
 function setReplyTo(comment) {
+  // 游客拦截
+  if (!requireAuth(route.fullPath)) return
   replyTarget.value = comment
   nextTick(() => {
     commentInputRef.value?.focus()
   })
 }
 
+// 游客点击评论输入框：弹登录引导
+function onCommentFocus() {
+  if (!isLoggedIn.value) {
+    requireAuth(route.fullPath)
+    nextTick(() => commentInputRef.value?.blur())
+  }
+}
+
 // 发送评论
 async function submitComment() {
   const id = post.value?.id
   if (!id || !commentText.value.trim() || submitting.value) return
+  // 游客拦截
+  if (!requireAuth(route.fullPath)) return
 
   submitting.value = true
   try {

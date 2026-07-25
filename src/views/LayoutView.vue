@@ -49,23 +49,33 @@
 
       <!-- 底部用户信息 -->
       <div class="sidebar-footer">
-        <router-link to="/profile" class="sidebar-user">
-          <div class="sidebar-user-avatar">
-            {{ userAvatarText }}
+        <!-- 已登录：用户信息 + 退出 -->
+        <template v-if="userStore.isLoggedIn">
+          <router-link to="/profile" class="sidebar-user">
+            <div class="sidebar-user-avatar">
+              {{ userAvatarText }}
+            </div>
+            <div class="sidebar-user-info">
+              <div class="sidebar-user-name">{{ userStore.user?.nickname || userStore.user?.username || '加载中...' }}</div>
+              <div class="sidebar-user-role">普通用户</div>
+            </div>
+          </router-link>
+          <button class="logout-btn" @click="handleLogout">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span>退出登录</span>
+          </button>
+        </template>
+        <!-- 游客：登录 / 注册入口 -->
+        <template v-else>
+          <div class="guest-auth-actions">
+            <router-link to="/login" class="guest-auth-btn guest-auth-login">登录</router-link>
+            <router-link to="/register" class="guest-auth-btn guest-auth-register">注册</router-link>
           </div>
-          <div class="sidebar-user-info">
-            <div class="sidebar-user-name">{{ userStore.user?.nickname || userStore.user?.username || '加载中...' }}</div>
-            <div class="sidebar-user-role">普通用户</div>
-          </div>
-        </router-link>
-        <button class="logout-btn" @click="handleLogout">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-          <span>退出登录</span>
-        </button>
+        </template>
       </div>
     </aside>
 
@@ -80,7 +90,12 @@
           </svg>
           <input type="text" placeholder="搜索明星、帖子、用户..." />
         </div>
-        <div class="topbar-actions"></div>
+        <div class="topbar-actions">
+          <!-- 游客态顶部登录入口 -->
+          <template v-if="!userStore.isLoggedIn">
+            <router-link to="/login" class="topbar-auth-btn">登录 / 注册</router-link>
+          </template>
+        </div>
       </header>
 
       <!-- 页面内容 -->
@@ -100,14 +115,20 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-const menuItems = [
+// 全部菜单项；受保护项标记 auth
+const allMenuItems = [
   { label: '首页', path: '/', icon: 'home' },
   { label: '明星', path: '/stars', icon: 'star' },
   { label: '粉丝圈', path: '/fan-circles', icon: 'fan-circle' },
-  { label: '私信', path: '/messages', icon: 'message' },
-  { label: '群聊', path: '/groups', icon: 'group' },
-  { label: '个人中心', path: '/profile', icon: 'user' },
+  { label: '私信', path: '/messages', icon: 'message', auth: true },
+  { label: '群聊', path: '/groups', icon: 'group', auth: true },
+  { label: '个人中心', path: '/profile', icon: 'user', auth: true },
 ]
+
+// 游客仅可见公开菜单项
+const menuItems = computed(() =>
+  userStore.isLoggedIn ? allMenuItems : allMenuItems.filter(i => !i.auth)
+)
 
 const userAvatarText = computed(() => {
   const user = userStore.user
@@ -294,6 +315,61 @@ onMounted(() => {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+}
+
+/* 游客态侧边栏登录/注册 */
+.guest-auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guest-auth-btn {
+  display: block;
+  text-align: center;
+  padding: 10px 0;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+
+.guest-auth-login {
+  background: var(--primary);
+  color: #fff;
+}
+
+.guest-auth-login:hover {
+  opacity: 0.9;
+}
+
+.guest-auth-register {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.guest-auth-register:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* 顶部栏游客登录入口 */
+.topbar-auth-btn {
+  padding: 7px 16px;
+  border-radius: 18px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.topbar-auth-btn:hover {
+  opacity: 0.9;
 }
 
 .main-content {

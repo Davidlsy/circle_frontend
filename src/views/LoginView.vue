@@ -48,10 +48,11 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { login } from '@/api/modules/auth'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -82,7 +83,9 @@ async function handleLogin() {
       password: form.password,
     })
     userStore.setToken(data.access_token)
-    router.push('/')
+    // 登录后回跳 redirect 指定的页面，无则回首页
+    const redirect = route.query.redirect
+    router.push(typeof redirect === 'string' ? redirect : '/')
   } catch (err) {
     const message = err.response?.data?.message || err.response?.data?.error || '登录失败，请检查用户名和密码'
     errorMsg.value = message
