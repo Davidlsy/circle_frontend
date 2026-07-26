@@ -130,6 +130,45 @@
         </div>
       </div>
 
+      <!-- 第三方账号绑定（仅自己主页可见） -->
+      <div v-if="isSelf" class="oauth-bind-panel">
+        <h3 class="edit-title">第三方账号绑定</h3>
+        <div v-if="bindingsLoading" class="oauth-bind-loading">
+          <div class="spinner-sm-dark"></div>
+          <span>加载中...</span>
+        </div>
+        <template v-else>
+          <div
+            v-for="p in oauthProviders"
+            :key="p.key"
+            class="oauth-bind-item"
+          >
+            <div class="oauth-bind-info">
+              <span class="oauth-bind-name" :style="{ color: p.color }">{{ p.name }}</span>
+              <span class="oauth-bind-status">
+                {{ getBinding(p.key) ? `已绑定（${formatBindDate(getBinding(p.key).created_at)}）` : '未绑定' }}
+              </span>
+            </div>
+            <button
+              v-if="getBinding(p.key)"
+              class="btn btn-outline btn-sm"
+              :disabled="unbindLoading === p.key"
+              @click="handleUnbind(p.key)"
+            >
+              {{ unbindLoading === p.key ? '解绑中...' : '解绑' }}
+            </button>
+            <button
+              v-else
+              class="btn btn-primary btn-sm"
+              :disabled="bindLoading === p.key"
+              @click="handleBind(p.key)"
+            >
+              {{ bindLoading === p.key ? '跳转中...' : `绑定${p.name}` }}
+            </button>
+          </div>
+        </template>
+      </div>
+
       <!-- Tab 切换 -->
       <div class="tab-bar">
         <div
@@ -400,6 +439,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getUserProfile, getFollowers, getFollowing, followUser, unfollowUser } from '@/api/modules/social'
 import { getPosts } from '@/api/modules/posts'
+import { getOAuthBindings, getAuthorizeUrl, unbindOAuth, PROVIDER_NAMES } from '@/api/modules/oauth'
 import api from '@/api/index'
 
 const route = useRoute()
@@ -456,6 +496,67 @@ const editForm = ref({
   bio: ''
 })
 const saveLoading = ref(false)
+
+// ---------- 第三方账号绑定 ----------
+const oauthProviders = [
+  { key: 'wechat', name: PROVIDER_NAMES.wechat, color: '#07C160' },
+  { key: 'douyin', name: PROVIDER_NAMES.douyin, color: '#000000' },
+  { key: 'alipay', name: PROVIDER_NAMES.alipay, color: '#1677FF' },
+]
+const bindings = ref([])
+const bindingsLoading = ref(false)
+const bindLoading = ref(null)
+const unbindLoading = ref(null)
+
+function getBinding(provider) {
+  return bindings.value.find(b => b.provider === provider)
+}
+
+function formatBindDate(timeStr) {
+  if (!timeStr) return ''
+  const d = new Date(timeStr)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+async function fetchBindings() {
+  bindingsLoading.value = true
+  try {
+    const data = await getOAuthBindings()
+    bindings.value = Array.isArray(data) ? data : (data.data || [])
+  } catch (e) {
+    console.error('获取绑定列表失败:', e)
+  } finally {
+    bindingsLoading.value = false
+  }
+}
+
+async function handleBind(provider) {
+  if (bindLoading.value) return
+  bindLoading.value = provider
+  try {
+    const data = await getAuthorizeUrl(provider, 'bind')
+    // 保存当前路径，绑定完成后跳回
+    sessionStorage.setItem('oauth_bind_redirect', window.location.pathname)
+    window.location.href = data.authorize_url
+  } catch (e) {
+    console.error('获取绑定授权链接失败:', e)
+    bindLoading.value = null
+  }
+}
+
+async function handleUnbind(provider) {
+  const name = PROVIDER_NAMES[provider] || provider
+  if (!confirm(`确定要解绑${name}账号吗？`)) return
+  unbindLoading.value = provider
+  try {
+    await unbindOAuth(provider)
+    await fetchBindings()
+  } catch (e) {
+    console.error('解绑失败:', e)
+  } finally {
+    unbindLoading.value = null
+  }
+}
 
 // ---------- 工具函数 ----------
 
@@ -520,6 +621,10 @@ async function loadProfile() {
 
   // 加载帖子
   fetchPosts()
+  // 自己的主页加载第三方绑定列表
+  if (isSelf.value) {
+    fetchBindings()
+  }
 }
 
 function resetAllData() {
@@ -915,6 +1020,86 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 8px;
+}
+
+/* ============================================
+   第三方账号绑定面板
+   ============================================ */
+.oauth-bind-panel {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.oauth-bind-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-light);
+  font-size: 13px;
+  padding: 12px 0;
+}
+
+.spinner-sm-dark {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.oauth-bind-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.oauth-bind-item:last-child {
+  border-bottom: none;
+}
+
+.oauth-bind-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.oauth-bind-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.oauth-bind-status {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.btn-sm {
+  height: 32px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
+.btn-outline {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.btn-outline:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ============================================

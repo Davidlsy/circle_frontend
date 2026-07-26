@@ -39,6 +39,39 @@
         </button>
       </form>
 
+      <!-- 第三方登录 -->
+      <div class="oauth-section">
+        <div class="oauth-divider">
+          <span>其他登录方式</span>
+        </div>
+        <div class="oauth-buttons">
+          <button
+            class="oauth-btn oauth-btn--wechat"
+            :disabled="oauthLoading"
+            title="微信登录"
+            @click="handleOAuthLogin('wechat')"
+          >
+            <span class="oauth-icon wechat-icon">微信</span>
+          </button>
+          <button
+            class="oauth-btn oauth-btn--douyin"
+            :disabled="oauthLoading"
+            title="抖音登录"
+            @click="handleOAuthLogin('douyin')"
+          >
+            <span class="oauth-icon douyin-icon">抖音</span>
+          </button>
+          <button
+            class="oauth-btn oauth-btn--alipay"
+            :disabled="oauthLoading"
+            title="支付宝登录"
+            @click="handleOAuthLogin('alipay')"
+          >
+            <span class="oauth-icon alipay-icon">支付宝</span>
+          </button>
+        </div>
+      </div>
+
       <div class="auth-link">
         没有账号？<router-link to="/register">去注册</router-link>
       </div>
@@ -51,12 +84,14 @@ import { ref, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { login } from '@/api/modules/auth'
+import { getAuthorizeUrl } from '@/api/modules/oauth'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
 const loading = ref(false)
+const oauthLoading = ref(false)
 const errorMsg = ref('')
 
 const form = reactive({
@@ -91,6 +126,20 @@ async function handleLogin() {
     errorMsg.value = message
   } finally {
     loading.value = false
+  }
+}
+
+// 第三方登录：获取授权 URL 并跳转
+async function handleOAuthLogin(provider) {
+  if (oauthLoading.value) return
+  oauthLoading.value = true
+  errorMsg.value = ''
+  try {
+    const data = await getAuthorizeUrl(provider, 'login')
+    window.location.href = data.authorize_url
+  } catch (err) {
+    oauthLoading.value = false
+    errorMsg.value = err.response?.data?.detail || '获取授权链接失败，请稍后重试'
   }
 }
 </script>
@@ -249,5 +298,92 @@ async function handleLogin() {
 
 .auth-link a:hover {
   color: var(--primary-hover);
+}
+
+/* 第三方登录 */
+.oauth-section {
+  margin-top: 28px;
+}
+
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 20px;
+  color: var(--text-light);
+  font-size: 12px;
+}
+
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.oauth-divider span {
+  padding: 0 16px;
+}
+
+.oauth-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.oauth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid #e0e0e0;
+  background: var(--card);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.oauth-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.oauth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.oauth-btn--wechat:hover {
+  border-color: #07C160;
+}
+
+.oauth-btn--douyin:hover {
+  border-color: #000000;
+}
+
+.oauth-btn--alipay:hover {
+  border-color: #1677FF;
+}
+
+.oauth-icon {
+  font-size: 11px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.wechat-icon {
+  color: #07C160;
+}
+
+.douyin-icon {
+  color: #000000;
+}
+
+.alipay-icon {
+  color: #1677FF;
 }
 </style>
