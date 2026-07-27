@@ -1,11 +1,13 @@
 import api from '../index'
-// 私信
+
+// 私信会话
 export const getConversations = () => api.get('/messages/conversations')
-export const getOrCreateConversation = (data) => api.post('/messages/conversations', data)
+export const getOrCreateConversation = (targetUserId) => api.post('/messages/conversations', { target_user_id: targetUserId })
 export const getMessages = (convId, params) => api.get(`/messages/conversations/${convId}/messages`, { params })
 export const sendMessage = (convId, data) => api.post(`/messages/conversations/${convId}/messages`, data)
 export const markRead = (convId) => api.put(`/messages/conversations/${convId}/read`)
 export const getUnreadCount = () => api.get('/messages/conversations/unread-count')
+
 // 群聊
 export const getGroups = () => api.get('/groups/')
 export const getGroup = (id) => api.get(`/groups/${id}`)

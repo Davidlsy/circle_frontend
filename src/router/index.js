@@ -13,6 +13,7 @@ const routes = [
     { path: 'fan-circles', name: 'FanCircles', component: () => import('@/views/FanCirclesView.vue') },
     { path: 'fan-circles/:id', name: 'FanCircleDetail', component: () => import('@/views/FanCircleDetailView.vue') },
     { path: 'posts/:id', name: 'PostDetail', component: () => import('@/views/PostDetailView.vue') },
+    { path: 'create-post', name: 'CreatePost', component: () => import('@/views/CreatePostView.vue'), meta: { auth: true } },
     // 受保护路由（必须登录）
     { path: 'messages', name: 'Messages', component: () => import('@/views/MessagesView.vue'), meta: { auth: true } },
     { path: 'groups', name: 'Groups', component: () => import('@/views/GroupsView.vue'), meta: { auth: true } },
