@@ -151,7 +151,7 @@
             </div>
             <button
               v-if="getBinding(p.key)"
-              class="btn btn-outline btn-sm"
+              class="btn-bind btn-outline-sm"
               :disabled="unbindLoading === p.key"
               @click="handleUnbind(p.key)"
             >
@@ -159,7 +159,7 @@
             </button>
             <button
               v-else
-              class="btn btn-primary btn-sm"
+              class="btn-bind btn-primary-sm"
               :disabled="bindLoading === p.key"
               @click="handleBind(p.key)"
             >
@@ -535,8 +535,10 @@ async function handleBind(provider) {
   bindLoading.value = provider
   try {
     const data = await getAuthorizeUrl(provider, 'bind')
-    // 保存当前路径，绑定完成后跳回
-    sessionStorage.setItem('oauth_bind_redirect', window.location.pathname)
+    // 保存 state + action + 回跳路径
+    localStorage.setItem('oauth_state', data.state)
+    localStorage.setItem('oauth_action', 'bind')
+    localStorage.setItem('oauth_bind_redirect', window.location.pathname)
     window.location.href = data.authorize_url
   } catch (e) {
     console.error('获取绑定授权链接失败:', e)
@@ -1079,19 +1081,37 @@ onUnmounted(() => {
   color: var(--text-light);
 }
 
-.btn-sm {
+.btn-bind {
   height: 32px;
   padding: 0 16px;
   font-size: 13px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  border: none;
 }
 
-.btn-outline {
+.btn-bind:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary-sm {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary-sm:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.btn-outline-sm {
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--text-secondary);
 }
 
-.btn-outline:hover {
+.btn-outline-sm:hover:not(:disabled) {
   border-color: var(--primary);
   color: var(--primary);
 }

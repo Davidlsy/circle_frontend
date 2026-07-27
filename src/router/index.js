@@ -3,7 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { guest: true } },
   { path: '/register', name: 'Register', component: () => import('@/views/RegisterView.vue'), meta: { guest: true } },
-  // OAuth 回调页（公开路由，登录/绑定共用）
+  // OAuth 回调页（公开路由，登录/注册/绑定共用）
   { path: '/oauth/callback/:provider', name: 'OauthCallback', component: () => import('@/views/OauthCallbackView.vue') },
   { path: '/', component: () => import('@/views/LayoutView.vue'), children: [
     // 游客可访问的公开路由

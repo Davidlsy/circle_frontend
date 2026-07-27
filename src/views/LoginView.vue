@@ -136,6 +136,10 @@ async function handleOAuthLogin(provider) {
   errorMsg.value = ''
   try {
     const data = await getAuthorizeUrl(provider, 'login')
+    // 保存 state 用于回调页 CSRF 校验
+    localStorage.setItem('oauth_state', data.state)
+    localStorage.setItem('oauth_action', 'login')
+    // 跳转到第三方授权页
     window.location.href = data.authorize_url
   } catch (err) {
     oauthLoading.value = false
