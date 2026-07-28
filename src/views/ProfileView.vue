@@ -130,43 +130,38 @@
         </div>
       </div>
 
-      <!-- 第三方账号绑定（仅自己主页可见） -->
-      <div v-if="isSelf" class="oauth-bind-panel">
-        <h3 class="edit-title">第三方账号绑定</h3>
-        <div v-if="bindingsLoading" class="oauth-bind-loading">
-          <div class="spinner-sm-dark"></div>
-          <span>加载中...</span>
-        </div>
-        <template v-else>
-          <div
-            v-for="p in oauthProviders"
-            :key="p.key"
-            class="oauth-bind-item"
-          >
-            <div class="oauth-bind-info">
-              <span class="oauth-bind-name" :style="{ color: p.color }">{{ p.name }}</span>
-              <span class="oauth-bind-status">
-                {{ getBinding(p.key) ? `已绑定（${formatBindDate(getBinding(p.key).created_at)}）` : '未绑定' }}
-              </span>
+      <!-- 第三方账号绑定 -->
+      <div v-if="isSelf" class="edit-panel">
+        <h3 class="edit-title">账号绑定</h3>
+        <p class="bind-desc">绑定第三方账号，方便快捷登录</p>
+        <div class="bind-list">
+          <div v-for="provider in availableProviders" :key="provider.key" class="bind-item">
+            <div class="bind-info">
+              <span class="bind-icon">{{ provider.icon }}</span>
+              <div class="bind-text">
+                <div class="bind-name">{{ provider.name }}</div>
+                <div v-if="bindingsMap[provider.key]" class="bind-status bound">已绑定</div>
+                <div v-else class="bind-status unbound">未绑定</div>
+              </div>
             </div>
             <button
-              v-if="getBinding(p.key)"
-              class="btn-bind btn-outline-sm"
-              :disabled="unbindLoading === p.key"
-              @click="handleUnbind(p.key)"
+              v-if="bindingsMap[provider.key]"
+              class="btn btn-ghost btn-sm"
+              :disabled="unbindLoading === provider.key"
+              @click="handleUnbind(provider.key)"
             >
-              {{ unbindLoading === p.key ? '解绑中...' : '解绑' }}
+              {{ unbindLoading === provider.key ? '解绑中...' : '解绑' }}
             </button>
             <button
               v-else
-              class="btn-bind btn-primary-sm"
-              :disabled="bindLoading === p.key"
-              @click="handleBind(p.key)"
+              class="btn btn-primary btn-sm"
+              :disabled="bindLoading === provider.key"
+              @click="handleBind(provider.key)"
             >
-              {{ bindLoading === p.key ? '跳转中...' : `绑定${p.name}` }}
+              {{ bindLoading === provider.key ? '绑定中...' : '绑定' }}
             </button>
           </div>
-        </template>
+        </div>
       </div>
 
       <!-- Tab 切换 -->
@@ -439,7 +434,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getUserProfile, getFollowers, getFollowing, followUser, unfollowUser } from '@/api/modules/social'
 import { getPosts } from '@/api/modules/posts'
-import { getOAuthBindings, getAuthorizeUrl, unbindOAuth, PROVIDER_NAMES } from '@/api/modules/oauth'
+import { getOAuthBindings, unbindOAuth, getAuthorizeUrl } from '@/api/modules/auth'
 import api from '@/api/index'
 
 const route = useRoute()
@@ -498,67 +493,30 @@ const editForm = ref({
 const saveLoading = ref(false)
 
 // ---------- 第三方账号绑定 ----------
-const oauthProviders = [
-  { key: 'wechat', name: PROVIDER_NAMES.wechat, color: '#07C160' },
-  { key: 'douyin', name: PROVIDER_NAMES.douyin, color: '#000000' },
-  { key: 'alipay', name: PROVIDER_NAMES.alipay, color: '#1677FF' },
+const PROVIDER_NAMES = {
+  wechat: '微信',
+  douyin: '抖音',
+  alipay: '支付宝'
+}
+
+const availableProviders = [
+  { key: 'wechat', name: '微信', icon: '💬' },
+  { key: 'douyin', name: '抖音', icon: '🎵' },
+  { key: 'alipay', name: '支付宝', icon: '💰' }
 ]
+
 const bindings = ref([])
 const bindingsLoading = ref(false)
-const bindLoading = ref(null)
 const unbindLoading = ref(null)
+const bindLoading = ref(null)
 
-function getBinding(provider) {
-  return bindings.value.find(b => b.provider === provider)
-}
-
-function formatBindDate(timeStr) {
-  if (!timeStr) return ''
-  const d = new Date(timeStr)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-async function fetchBindings() {
-  bindingsLoading.value = true
-  try {
-    const data = await getOAuthBindings()
-    bindings.value = Array.isArray(data) ? data : (data.data || [])
-  } catch (e) {
-    console.error('获取绑定列表失败:', e)
-  } finally {
-    bindingsLoading.value = false
-  }
-}
-
-async function handleBind(provider) {
-  if (bindLoading.value) return
-  bindLoading.value = provider
-  try {
-    const data = await getAuthorizeUrl(provider, 'bind')
-    // 保存 state + action + 回跳路径
-    localStorage.setItem('oauth_state', data.state)
-    localStorage.setItem('oauth_action', 'bind')
-    localStorage.setItem('oauth_bind_redirect', window.location.pathname)
-    window.location.href = data.authorize_url
-  } catch (e) {
-    console.error('获取绑定授权链接失败:', e)
-    bindLoading.value = null
-  }
-}
-
-async function handleUnbind(provider) {
-  const name = PROVIDER_NAMES[provider] || provider
-  if (!confirm(`确定要解绑${name}账号吗？`)) return
-  unbindLoading.value = provider
-  try {
-    await unbindOAuth(provider)
-    await fetchBindings()
-  } catch (e) {
-    console.error('解绑失败:', e)
-  } finally {
-    unbindLoading.value = null
-  }
-}
+const bindingsMap = computed(() => {
+  const map = {}
+  bindings.value.forEach(b => {
+    map[b.provider] = b
+  })
+  return map
+})
 
 // ---------- 工具函数 ----------
 
@@ -623,7 +581,8 @@ async function loadProfile() {
 
   // 加载帖子
   fetchPosts()
-  // 自己的主页加载第三方绑定列表
+
+  // 加载第三方账号绑定（仅自己的主页）
   if (isSelf.value) {
     fetchBindings()
   }
@@ -817,6 +776,55 @@ async function saveProfile() {
     console.error('保存资料失败:', e)
   } finally {
     saveLoading.value = false
+  }
+}
+
+// ---------- 第三方账号绑定 ----------
+
+async function fetchBindings() {
+  if (!isSelf.value) return
+  bindingsLoading.value = true
+  try {
+    const data = await getOAuthBindings()
+    bindings.value = data || []
+  } catch (e) {
+    console.error('获取绑定列表失败:', e)
+    bindings.value = []
+  } finally {
+    bindingsLoading.value = false
+  }
+}
+
+async function handleUnbind(provider) {
+  const name = PROVIDER_NAMES[provider] || provider
+  if (!confirm(`确定要解绑${name}账号吗？`)) return
+  unbindLoading.value = provider
+  try {
+    await unbindOAuth(provider)
+    await fetchBindings()
+  } catch (e) {
+    const detail = e.response?.data?.detail || e.response?.data?.message || '解绑失败，请重试'
+    alert(detail)
+  } finally {
+    unbindLoading.value = null
+  }
+}
+
+async function handleBind(provider) {
+  bindLoading.value = provider
+  try {
+    const data = await getAuthorizeUrl(provider, 'bind')
+    if (data.authorize_url) {
+      if (data.state) {
+        localStorage.setItem('oauth_state', data.state)
+      }
+      window.location.href = data.authorize_url
+    }
+  } catch (e) {
+    const detail = e.response?.data?.detail || e.response?.data?.message || '获取授权链接失败，请重试'
+    alert(detail)
+  } finally {
+    bindLoading.value = null
   }
 }
 
@@ -1022,104 +1030,6 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 8px;
-}
-
-/* ============================================
-   第三方账号绑定面板
-   ============================================ */
-.oauth-bind-panel {
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 24px;
-  margin-bottom: 16px;
-}
-
-.oauth-bind-loading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-light);
-  font-size: 13px;
-  padding: 12px 0;
-}
-
-.spinner-sm-dark {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.oauth-bind-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.oauth-bind-item:last-child {
-  border-bottom: none;
-}
-
-.oauth-bind-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.oauth-bind-name {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.oauth-bind-status {
-  font-size: 12px;
-  color: var(--text-light);
-}
-
-.btn-bind {
-  height: 32px;
-  padding: 0 16px;
-  font-size: 13px;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all 0.25s ease;
-  border: none;
-}
-
-.btn-bind:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-primary-sm {
-  background: var(--primary);
-  color: white;
-}
-
-.btn-primary-sm:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.btn-outline-sm {
-  background: var(--card);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-}
-
-.btn-outline-sm:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* ============================================
@@ -1342,6 +1252,97 @@ onUnmounted(() => {
   padding: 20px 0;
   font-size: 13px;
   color: var(--text-light);
+}
+
+/* ============================================
+   第三方账号绑定
+   ============================================ */
+.bind-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: -10px 0 16px 0;
+}
+
+.bind-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bind-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.bind-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bind-icon {
+  font-size: 24px;
+}
+
+.bind-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bind-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.bind-status {
+  font-size: 12px;
+}
+
+.bind-status.bound {
+  color: #27ae60;
+}
+
+.bind-status.unbound {
+  color: var(--text-light);
+}
+
+.btn-sm {
+  height: 32px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ============================================

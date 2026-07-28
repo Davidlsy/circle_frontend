@@ -21,7 +21,7 @@
           <div class="conv-info">
             <div class="conv-top">
               <span class="conv-username">{{ conv.other_user?.username || '未知用户' }}</span>
-              <span class="conv-time">{{ formatTime(conv.last_message?.created_at || conv.updated_at) }}</span>
+              <span class="conv-time">{{ formatTime(conv.last_message_at || conv.updated_at) }}</span>
             </div>
             <div class="conv-bottom">
               <span class="conv-preview">{{ getPreview(conv) }}</span>
@@ -44,16 +44,16 @@
           </div>
           <div class="modal-body">
             <input
-              v-model="targetUserId"
+              v-model="newConvUsername"
               class="modal-input"
-              type="number"
-              placeholder="输入对方用户ID"
+              type="text"
+              placeholder="输入对方用户名"
               @keyup.enter="handleCreateConversation"
             />
           </div>
           <div class="modal-footer">
             <button class="btn-cancel" @click="showNewConvModal = false">取消</button>
-            <button class="btn-confirm" :disabled="!targetUserId" @click="handleCreateConversation">确定</button>
+            <button class="btn-confirm" :disabled="!newConvUsername.trim()" @click="handleCreateConversation">确定</button>
           </div>
         </div>
       </div>
@@ -78,7 +78,7 @@
             v-for="msg in messages"
             :key="msg.id"
             class="message-item"
-            :class="{ 'is-self': isSelfMessage(msg), 'is-system': msg.message_type === 'system' }"
+            :class="{ 'is-self': msg.is_self, 'is-system': msg.message_type === 'system' }"
           >
             <!-- 系统消息 -->
             <div v-if="msg.message_type === 'system'" class="system-message">
@@ -89,11 +89,11 @@
             <template v-else>
               <div class="message-meta">
                 <span class="message-time">{{ formatMessageTime(msg.created_at) }}</span>
-                <span v-if="isSelfMessage(msg) && msg.is_read !== undefined" class="message-read">
-                  {{ msg.is_read ? '已读' : '未读' }}
+                <span v-if="msg.is_read !== undefined" class="message-read">
+                  {{ msg.is_self ? (msg.is_read ? '已读' : '未读') : '' }}
                 </span>
               </div>
-              <div class="message-bubble" :class="{ 'bubble-self': isSelfMessage(msg) }">
+              <div class="message-bubble" :class="{ 'bubble-self': msg.is_self }">
                 <!-- 文本消息 -->
                 <div v-if="msg.message_type === 'text'" class="bubble-text">{{ msg.content }}</div>
                 <!-- 图片消息 -->
@@ -103,9 +103,9 @@
                 <!-- 表情包消息 -->
                 <div v-else-if="msg.message_type === 'sticker'" class="bubble-sticker">[表情包]</div>
                 <!-- 位置消息 -->
-                <div v-else-if="msg.message_type === 'location' && msg.location" class="bubble-location">
-                  <div class="location-name">{{ msg.location.name || '未知位置' }}</div>
-                  <div class="location-addr">{{ msg.location.address || '' }}</div>
+                <div v-else-if="msg.message_type === 'location'" class="bubble-location">
+                  <div class="location-name">{{ msg.content?.name || '未知位置' }}</div>
+                  <div class="location-addr">{{ msg.content?.address || '' }}</div>
                 </div>
                 <!-- 其他类型兜底 -->
                 <div v-else class="bubble-text">{{ msg.content }}</div>
@@ -149,10 +149,8 @@ const conversations = ref([])
 const convLoading = ref(false)
 const selectedConvId = ref(null)
 const currentUsername = ref('')
-
-// 新建会话状态
 const showNewConvModal = ref(false)
-const targetUserId = ref('')
+const newConvUsername = ref('')
 
 // 消息状态
 const messages = ref([])
@@ -161,22 +159,12 @@ const inputText = ref('')
 const sending = ref(false)
 const messageListRef = ref(null)
 
-// 获取当前用户ID
-function getCurrentUserId() {
-  return userStore.user?.id || null
-}
-
-// 判断是否是自己发的消息
-function isSelfMessage(msg) {
-  return msg.sender_id === getCurrentUserId()
-}
-
 // 获取首字母
 function getInitial(name) {
   return (name || 'U').charAt(0).toUpperCase()
 }
 
-// 格式化时间
+// 格式化会话列表时间
 function formatTime(timeStr) {
   if (!timeStr) return ''
   const now = Date.now()
@@ -222,7 +210,7 @@ async function fetchConversations() {
   convLoading.value = true
   try {
     const res = await getConversations()
-    conversations.value = res.conversations || []
+    conversations.value = res.results || res.data || res.list || res || []
   } catch (e) {
     console.error('获取会话列表失败:', e)
   } finally {
@@ -250,7 +238,7 @@ async function fetchMessages(convId) {
   msgLoading.value = true
   try {
     const res = await getMessages(convId, { page: 1, page_size: 50 })
-    messages.value = res.messages || []
+    messages.value = res.results || res.data || res.list || res || []
     await nextTick()
     scrollToBottom()
   } catch (e) {
@@ -279,7 +267,7 @@ async function handleSend() {
       id: Date.now(),
       content,
       message_type: 'text',
-      sender_id: getCurrentUserId(),
+      is_self: true,
       is_read: false,
       created_at: new Date().toISOString(),
     }
@@ -318,25 +306,19 @@ function handleKeyDown(e) {
 
 // 新建会话
 async function handleCreateConversation() {
-  const userId = parseInt(targetUserId.value)
-  if (!userId) return
+  const username = newConvUsername.value.trim()
+  if (!username) return
 
   try {
-    const conv = await getOrCreateConversation(userId)
+    const res = await getOrCreateConversation({ username })
+    const conv = res.data || res
     showNewConvModal.value = false
-    targetUserId.value = ''
+    newConvUsername.value = ''
 
     // 检查会话是否已在列表中
     const existing = conversations.value.find(c => c.id === conv.id)
     if (!existing) {
-      conversations.value.unshift({
-        id: conv.id,
-        other_user: { username: conv.user1_id === getCurrentUserId() ? conv.user2?.username : conv.user1?.username },
-        last_message: null,
-        unread_count: 0,
-        updated_at: conv.updated_at,
-        created_at: conv.created_at,
-      })
+      conversations.value.unshift(conv)
     }
 
     // 选中该会话
@@ -569,56 +551,10 @@ onMounted(() => {
   outline: none;
   transition: border-color 0.2s;
   box-sizing: border-box;
-  margin-bottom: 12px;
 }
 
 .modal-input:focus {
   border-color: var(--primary, #4a90d9);
-}
-
-.search-results {
-  max-height: 200px;
-  overflow-y: auto;
-  border: 1px solid var(--border, #eee);
-  border-radius: 6px;
-}
-
-.search-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.search-item:hover {
-  background: #f5f5f5;
-}
-
-.search-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--primary, #4a90d9);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.search-name {
-  font-size: 14px;
-  color: var(--text, #333);
-}
-
-.search-empty {
-  text-align: center;
-  padding: 16px;
-  color: var(--text-light, #999);
-  font-size: 14px;
 }
 
 .modal-footer {
