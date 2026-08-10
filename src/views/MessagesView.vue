@@ -16,11 +16,11 @@
           @click="selectConversation(conv)"
         >
           <div class="conv-avatar">
-            {{ getInitial(conv.other_user?.username || 'U') }}
+            {{ getInitial(conv.other_user?.nickname || conv.other_user?.username || 'U') }}
           </div>
           <div class="conv-info">
             <div class="conv-top">
-              <span class="conv-username">{{ conv.other_user?.username || '未知用户' }}</span>
+              <span class="conv-username">{{ conv.other_user?.nickname || conv.other_user?.username || '未知用户' }}</span>
               <span class="conv-time">{{ formatTime(conv.last_message_at || conv.updated_at) }}</span>
             </div>
             <div class="conv-bottom">
@@ -44,16 +44,16 @@
           </div>
           <div class="modal-body">
             <input
-              v-model="newConvUsername"
+              v-model="newConvTargetId"
               class="modal-input"
-              type="text"
-              placeholder="输入对方用户名"
+              type="number"
+              placeholder="输入对方用户ID（数字）"
               @keyup.enter="handleCreateConversation"
             />
           </div>
           <div class="modal-footer">
             <button class="btn-cancel" @click="showNewConvModal = false">取消</button>
-            <button class="btn-confirm" :disabled="!newConvUsername.trim()" @click="handleCreateConversation">确定</button>
+            <button class="btn-confirm" :disabled="!newConvTargetId" @click="handleCreateConversation">确定</button>
           </div>
         </div>
       </div>
@@ -150,7 +150,7 @@ const convLoading = ref(false)
 const selectedConvId = ref(null)
 const currentUsername = ref('')
 const showNewConvModal = ref(false)
-const newConvUsername = ref('')
+const newConvTargetId = ref(null)
 
 // 消息状态
 const messages = ref([])
@@ -210,7 +210,7 @@ async function fetchConversations() {
   convLoading.value = true
   try {
     const res = await getConversations()
-    conversations.value = res.results || res.data || res.list || res || []
+    conversations.value = res.conversations || res.results || res.data || res.list || (Array.isArray(res) ? res : [])
   } catch (e) {
     console.error('获取会话列表失败:', e)
   } finally {
@@ -221,7 +221,7 @@ async function fetchConversations() {
 // 选择会话
 async function selectConversation(conv) {
   selectedConvId.value = conv.id
-  currentUsername.value = conv.other_user?.username || '未知用户'
+  currentUsername.value = conv.other_user?.nickname || conv.other_user?.username || '未知用户'
   messages.value = []
   await fetchMessages(conv.id)
   // 标记已读
@@ -238,7 +238,12 @@ async function fetchMessages(convId) {
   msgLoading.value = true
   try {
     const res = await getMessages(convId, { page: 1, page_size: 50 })
-    messages.value = res.results || res.data || res.list || res || []
+    const raw = res.messages || res.results || res.data || res.list || (Array.isArray(res) ? res : [])
+    const uid = userStore.user?.id
+    messages.value = raw.map(m => ({
+      ...m,
+      is_self: m.is_self !== undefined ? m.is_self : (uid != null ? m.sender_id === uid : false),
+    }))
     await nextTick()
     scrollToBottom()
   } catch (e) {
@@ -306,14 +311,14 @@ function handleKeyDown(e) {
 
 // 新建会话
 async function handleCreateConversation() {
-  const username = newConvUsername.value.trim()
-  if (!username) return
+  const targetUserId = Number(newConvTargetId.value)
+  if (!targetUserId || targetUserId <= 0) return
 
   try {
-    const res = await getOrCreateConversation({ username })
-    const conv = res.data || res
+    const res = await getOrCreateConversation({ target_user_id: targetUserId })
+    const conv = res
     showNewConvModal.value = false
-    newConvUsername.value = ''
+    newConvTargetId.value = null
 
     // 检查会话是否已在列表中
     const existing = conversations.value.find(c => c.id === conv.id)
@@ -324,7 +329,8 @@ async function handleCreateConversation() {
     // 选中该会话
     selectConversation(conv)
   } catch (e) {
-    console.error('创建会话失败:', e)
+    const detail = e.response?.data?.detail || e.response?.data?.message || '创建会话失败，请确认用户ID是否正确'
+    alert(detail)
   }
 }
 
