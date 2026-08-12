@@ -16,6 +16,8 @@ const routes = [
     { path: 'groups', name: 'Groups', component: () => import('@/views/GroupsView.vue'), meta: { auth: true } },
     { path: 'groups/:id', name: 'GroupChat', component: () => import('@/views/GroupChatView.vue'), meta: { auth: true } },
     { path: 'profile/:id?', name: 'Profile', component: () => import('@/views/ProfileView.vue'), meta: { auth: true } },
+    // 发帖页（R3：原先 CreatePostView 已存在但未注册路由，导致发帖入口不可达）
+    { path: 'create-post', name: 'CreatePost', component: () => import('@/views/CreatePostView.vue'), meta: { auth: true } },
   ]},
 ]
 

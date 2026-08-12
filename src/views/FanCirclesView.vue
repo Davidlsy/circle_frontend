@@ -17,7 +17,7 @@
           <div class="fan-circle-card-inner">
             <div class="fan-circle-icon">
               <img
-                :src="circle.avatar || circle.cover || defaultIcon"
+                :src="circle.avatar || circle.banner || defaultIcon"
                 :alt="circle.name"
               />
             </div>
@@ -30,14 +30,14 @@
                   <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                   <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
-                {{ formatNumber(circle.fans_count || circle.members_count) }}
+                {{ formatNumber(circle.member_count) }}
               </span>
               <span class="fan-circle-meta-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <polyline points="14 2 14 8 20 8" />
                 </svg>
-                {{ formatNumber(circle.posts_count) }}
+                {{ formatNumber(circle.post_count) }}
               </span>
             </div>
           </div>
@@ -57,7 +57,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getStars } from '@/api/modules/stars'
+import { getFanCircles } from '@/api/modules/fanCircles'
 
 const router = useRouter()
 const circles = ref([])
@@ -68,8 +68,8 @@ const defaultIcon = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%22http%3A%2
 async function fetchCircles() {
   loading.value = true
   try {
-    const res = await getStars({ page: 1, page_size: 12 })
-    circles.value = res.results || res.data || res.list || res || []
+    const res = await getFanCircles({ page: 1, page_size: 12 })
+    circles.value = res.circles || res.results || res.data || res.list || res || []
   } catch (e) {
     console.error('获取粉丝圈列表失败', e)
   } finally {

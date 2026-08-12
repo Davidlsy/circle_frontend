@@ -58,7 +58,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { oauthCallback, oauthRegister, bindOAuth, PROVIDER_NAMES } from '@/api/modules/oauth'
+import { oauthCallback, bindOAuth, PROVIDER_NAMES } from '@/api/modules/oauth'
 
 const route = useRoute()
 const router = useRouter()
@@ -171,16 +171,21 @@ async function submitRegister(skip) {
 
   registerLoading.value = true
   try {
-    const data = await oauthRegister(pendingProvider.value, pendingCode.value, pendingState.value, username)
+    // R1 修复：注册与登录统一走 oauthCallback（后端首次登录自动建号）。
+    // 携带用户名（后端支持时生效）；is_new_user 由后端返回时用于区分文案。
+    const data = await oauthCallback(
+      pendingProvider.value,
+      pendingCode.value,
+      pendingState.value,
+      username ? { username } : {}
+    )
     userStore.setToken(data.access_token)
     localStorage.removeItem('oauth_action')
     await userStore.fetchProfile()
 
-    if (data.is_new_user) {
-      successText.value = '注册成功，欢迎加入！'
-    } else {
-      successText.value = '该账号已存在，已为您直接登录'
-    }
+    // 后端未返回 is_new_user 时（当前后端版本未携带），一律按注册成功展示
+    successText.value =
+      data.is_new_user === false ? '该账号已存在，已为您直接登录' : '注册成功，欢迎加入！'
     status.value = 'success'
     setTimeout(() => router.push('/'), 1000)
   } catch (err) {

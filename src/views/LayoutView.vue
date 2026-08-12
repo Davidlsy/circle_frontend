@@ -91,8 +91,12 @@
           <input type="text" placeholder="搜索明星、帖子、用户..." />
         </div>
         <div class="topbar-actions">
+          <!-- 已登录：发帖入口（R3） -->
+          <router-link v-if="userStore.isLoggedIn" to="/create-post" class="topbar-post-btn">
+            ＋ 发帖
+          </router-link>
           <!-- 游客态顶部登录入口 -->
-          <template v-if="!userStore.isLoggedIn">
+          <template v-else>
             <router-link to="/login" class="topbar-auth-btn">登录 / 注册</router-link>
           </template>
         </div>
@@ -369,6 +373,22 @@ onMounted(() => {
 }
 
 .topbar-auth-btn:hover {
+  opacity: 0.9;
+}
+
+.topbar-post-btn {
+  padding: 7px 16px;
+  border-radius: 18px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.topbar-post-btn:hover {
   opacity: 0.9;
 }
 

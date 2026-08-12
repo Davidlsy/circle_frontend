@@ -16,6 +16,14 @@
       >
         关注
       </div>
+      <!-- 发帖入口（R3）：仅登录用户可见 -->
+      <button
+        v-if="userStore.isLoggedIn"
+        class="tab tab-post-btn"
+        @click="goCreatePost"
+      >
+        ＋ 发帖
+      </button>
     </div>
 
     <!-- 推荐页 -->
@@ -239,8 +247,10 @@ import { useRouter } from 'vue-router'
 import { getRecommended, getPosts, likePost, collectPost } from '@/api/modules/posts'
 import { getFeed } from '@/api/modules/social'
 import { requireAuth } from '@/composables/useAuthGuard'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNlOGU4ZTgiLz48Y2lyY2xlIGN4PSIyMCIgY3k9IjE1IiByPSI2IiBmaWxsPSIjYmNiY2JjIi8+PGVsbGlwc2UgY3g9IjIwIiBjeT0iMzMiIHJ4PSIxMiIgcnk9IjkiIGZpbGw9IiNiY2JjYmMiLz48L3N2Zz4='
 
 // Tab 状态
@@ -403,6 +413,12 @@ function goProfile(id) {
   if (id) router.push(`/profile/${id}`)
 }
 
+// 跳转发帖页（R3）
+function goCreatePost() {
+  if (!requireAuth('/')) return
+  router.push('/create-post')
+}
+
 // 滚动加载
 function handleScroll() {
   const scrollTop = document.documentElement.scrollTop || document.body.scrollTop
@@ -479,6 +495,23 @@ onUnmounted(() => {
   height: 3px;
   background: var(--primary);
   border-radius: 2px;
+}
+
+/* 发帖按钮（R3） */
+.tab-post-btn {
+  margin-left: auto;
+  color: #fff !important;
+  background: var(--primary, #4a90d9);
+  border-radius: 16px;
+  padding: 6px 16px !important;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.tab-post-btn:hover {
+  opacity: 0.9;
+  background: var(--primary, #4a90d9);
+  color: #fff !important;
 }
 
 /* 帖子正文截断 */

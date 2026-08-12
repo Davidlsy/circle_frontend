@@ -26,6 +26,18 @@ api.interceptors.response.use(
       if (hadToken) {
         showAuthModal('登录已过期，请重新登录', currentPath)
       }
+    } else if (!err.response) {
+      // 无响应：网络层错误（断网 / 后端未启动 / 跨域 CORS 被浏览器拦截）
+      const isTimeout = err.code === 'ECONNABORTED'
+      err.message = isTimeout
+        ? '请求超时，请稍后重试'
+        : '网络连接失败：请确认后端服务已启动，且前端域名已在后端 CORS_ORIGINS 白名单中（否则会被浏览器跨域拦截）'
+    } else {
+      // 有响应但非 2xx：优先提取后端 detail / message 文案
+      const detail = err.response?.data?.detail || err.response?.data?.message
+      if (detail) {
+        err.message = typeof detail === 'string' ? detail : JSON.stringify(detail)
+      }
     }
     return Promise.reject(err)
   }

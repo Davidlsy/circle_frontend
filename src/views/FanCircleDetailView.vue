@@ -9,12 +9,12 @@
       <template v-else-if="circle">
         <!-- 粉丝圈信息卡片 -->
         <div class="fan-circle-detail-header card">
-          <div class="fan-circle-detail-icon">
-            <img
-              :src="circle.avatar || circle.cover || defaultIcon"
-              :alt="circle.name"
-            />
-          </div>
+            <div class="fan-circle-detail-icon">
+              <img
+                :src="circle.avatar || circle.banner || defaultIcon"
+                :alt="circle.name"
+              />
+            </div>
           <div class="fan-circle-detail-info">
             <h1 class="fan-circle-detail-name">{{ circle.name }}</h1>
             <p v-if="circle.bio || circle.description" class="fan-circle-detail-desc">
@@ -22,10 +22,10 @@
             </p>
             <div class="fan-circle-detail-stats">
               <div class="star-stat">
-                <strong>{{ formatNumber(circle.fans_count || circle.members_count) }}</strong> 成员
+                <strong>{{ formatNumber(circle.member_count) }}</strong> 成员
               </div>
               <div class="star-stat">
-                <strong>{{ formatNumber(circle.posts_count) }}</strong> 帖子
+                <strong>{{ formatNumber(circle.post_count) }}</strong> 帖子
               </div>
             </div>
           </div>
@@ -149,8 +149,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import api from '@/api'
-import { getStar } from '@/api/modules/stars'
+import { getFanCircle, getFanCirclePhotos } from '@/api/modules/fanCircles'
 import { getPosts } from '@/api/modules/posts'
 
 const route = useRoute()
@@ -173,7 +172,7 @@ async function fetchCircle() {
   loading.value = true
   try {
     const id = route.params.id
-    const res = await getStar(id)
+    const res = await getFanCircle(id)
     circle.value = res.data || res
   } catch (e) {
     console.error('获取粉丝圈详情失败', e)
@@ -185,7 +184,9 @@ async function fetchCircle() {
 async function fetchPosts() {
   postsLoading.value = true
   try {
-    const res = await getPosts({ star_id: route.params.id })
+    // 粉丝圈对应一个明星，动态按 star_id 拉取
+    const starId = circle.value?.star_id
+    const res = await getPosts(starId ? { star_id: starId } : {})
     posts.value = res.results || res.data || res.list || res || []
   } catch (e) {
     console.error('获取帖子列表失败', e)
@@ -197,7 +198,7 @@ async function fetchPosts() {
 async function fetchPhotos() {
   photosLoading.value = true
   try {
-    const res = await api.get(`/fan-circles/${route.params.id}/photos`)
+    const res = await getFanCirclePhotos(route.params.id)
     photos.value = res.results || res.data || res.list || res || []
   } catch (e) {
     console.error('获取照片墙失败', e)

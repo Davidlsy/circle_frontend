@@ -12,15 +12,13 @@ export const PROVIDER_NAMES = {
 export const getAuthorizeUrl = (provider, purpose = 'login') =>
   api.get(`/auth/oauth/${provider}/authorize`, { params: { purpose } })
 
-// 第三方账号注册
-// 响应：{ access_token, token_type, is_new_user }
-export const oauthRegister = (provider, code, state, username) =>
-  api.post(`/auth/oauth/${provider}/register`, { code, state, username })
-
-// 第三方账号登录（回调）
-// 响应：{ access_token, token_type }
-export const oauthCallback = (provider, code, state) =>
-  api.post(`/auth/oauth/${provider}/callback`, { code, state })
+// 第三方账号登录/注册（回调）
+// 后端 oauth_callback 在首次登录时自动建号（_auto_register_user），
+// 注册与登录统一走此接口（R1 修复：原 oauthRegister 调用的 /register 端点不存在，必 404）。
+// extra 可携带可选字段，例如 { username }（需后端 oauth_callback 支持时生效）。
+// 响应：{ access_token, token_type }（后端支持时附带 is_new_user）
+export const oauthCallback = (provider, code, state, extra = {}) =>
+  api.post(`/auth/oauth/${provider}/callback`, { code, state, ...extra })
 
 // 绑定第三方账号（需登录）
 // 响应：{ msg: "绑定成功" }

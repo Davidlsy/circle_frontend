@@ -46,6 +46,15 @@
               <span v-if="profileUser.nickname && profileUser.nickname !== profileUser.username" class="profile-nickname">
                 @{{ profileUser.nickname }}
               </span>
+              <!-- 粉丝牌展示（R6） -->
+              <span
+                v-if="profileUser.display_badge"
+                class="profile-badge"
+                :style="{ background: profileUser.display_badge.badge_color || '#ff6b6b' }"
+                :title="profileUser.display_badge.star?.name ? profileUser.display_badge.star.name + '粉丝牌' : '粉丝牌'"
+              >
+                {{ profileUser.display_badge.badge_name }}
+              </span>
             </div>
 
             <p v-if="profileUser.bio" class="profile-bio">{{ profileUser.bio }}</p>
@@ -432,8 +441,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getUserProfile, getFollowers, getFollowing, followUser, unfollowUser } from '@/api/modules/social'
-import { getPosts } from '@/api/modules/posts'
+import { getUserProfile, getUserPosts, getFollowers, getFollowing, followUser, unfollowUser } from '@/api/modules/social'
 import { getOAuthBindings, unbindOAuth, getAuthorizeUrl } from '@/api/modules/auth'
 import api from '@/api/index'
 
@@ -612,14 +620,14 @@ async function fetchPosts() {
     const params = { page: postsPage.value, page_size: 10 }
     if (targetId) params.author_id = targetId
 
-    const res = await getPosts(params)
-    const data = res.results || res.data || res.list || res || []
-    if (Array.isArray(data) && data.length > 0) {
-      userPosts.value.push(...data)
-      postsPage.value++
-    } else {
-      postsNoMore.value = true
-    }
+  const res = await getUserPosts(targetId, { page: postsPage.value, page_size: 10 })
+  const data = res.posts || res.results || res.data || res.list || res || []
+  if (Array.isArray(data) && data.length > 0) {
+    userPosts.value.push(...data)
+    postsPage.value++
+  } else {
+    postsNoMore.value = true
+  }
   } catch (e) {
     console.error('获取用户帖子失败:', e)
   } finally {
@@ -956,6 +964,19 @@ onUnmounted(() => {
 .profile-nickname {
   font-size: 14px;
   color: var(--text-light);
+}
+
+/* 粉丝牌（R6） */
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  border-radius: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .profile-bio {
