@@ -3,6 +3,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { guest: true } },
   { path: '/register', name: 'Register', component: () => import('@/views/RegisterView.vue'), meta: { guest: true } },
+  // 找回密码（对接后端 /auth/forgot-password + /auth/reset-password）
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPasswordView.vue'), meta: { guest: true } },
   // 第三方登录回调页（B1 配套：后端授权后会重定向到此路径；
   // 不设 guest/auth 元信息，登录/注册/绑定三种流程都需要可达）
   { path: '/oauth/callback/:provider', name: 'OauthCallback', component: () => import('@/views/OauthCallbackView.vue') },

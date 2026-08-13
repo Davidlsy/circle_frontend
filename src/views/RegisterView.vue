@@ -66,6 +66,23 @@
       <div class="auth-link">
         已有账号？<router-link to="/login">去登录</router-link>
       </div>
+
+      <!-- 第三方注册（回调页会引导设置用户名） -->
+      <div class="oauth-divider"><span>或使用第三方注册</span></div>
+      <div class="oauth-buttons">
+        <button
+          v-for="p in oauthProviders"
+          :key="p.key"
+          type="button"
+          class="oauth-btn"
+          :disabled="oauthLoading !== ''"
+          @click="handleOAuthRegister(p.key)"
+        >
+          <span class="oauth-icon">{{ p.icon }}</span>
+          <span>{{ oauthLoading === p.key ? '跳转中...' : p.name }}</span>
+        </button>
+      </div>
+      <p v-if="oauthError" class="form-error">{{ oauthError }}</p>
     </div>
   </div>
 </template>
@@ -74,11 +91,37 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { register } from '@/api/modules/auth'
+import { getAuthorizeUrl } from '@/api/modules/oauth'
 
 const router = useRouter()
 
 const loading = ref(false)
 const errorMsg = ref('')
+
+// 第三方注册
+const oauthProviders = [
+  { key: 'wechat', name: '微信', icon: '💬' },
+  { key: 'douyin', name: '抖音', icon: '🎵' },
+  { key: 'alipay', name: '支付宝', icon: '💰' },
+]
+const oauthLoading = ref('')
+const oauthError = ref('')
+
+async function handleOAuthRegister(provider) {
+  if (oauthLoading.value) return
+  oauthError.value = ''
+  oauthLoading.value = provider
+  try {
+    const data = await getAuthorizeUrl(provider, 'login')
+    // register 流程：回调页会先引导设置用户名，再走注册
+    if (data.state) localStorage.setItem('oauth_state', data.state)
+    localStorage.setItem('oauth_action', 'register')
+    window.location.href = data.authorize_url
+  } catch (err) {
+    oauthError.value = err.response?.data?.detail || err.message || '获取授权链接失败，请重试'
+    oauthLoading.value = ''
+  }
+}
 
 const form = reactive({
   username: '',
@@ -288,5 +331,62 @@ async function handleRegister() {
 
 .auth-link a:hover {
   color: var(--primary-hover);
+}
+
+/* 第三方注册 */
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  margin-top: 24px;
+  color: var(--text-light);
+  font-size: 12px;
+}
+
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.oauth-divider span {
+  padding: 0 12px;
+}
+
+.oauth-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.oauth-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.oauth-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.oauth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.oauth-icon {
+  font-size: 16px;
 }
 </style>

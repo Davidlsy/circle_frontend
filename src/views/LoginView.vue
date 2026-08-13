@@ -4,6 +4,9 @@
       <h2 class="auth-title">登录</h2>
       <p class="auth-subtitle">欢迎回到 CIRCLE 粉丝社群</p>
 
+      <!-- 来自注册/找回密码页的成功提示 -->
+      <p v-if="successMsg" class="form-success">{{ successMsg }}</p>
+
       <form @submit.prevent="handleLogin">
         <div class="form-group">
           <label class="form-label">用户名</label>
@@ -40,8 +43,28 @@
       </form>
 
       <div class="auth-link">
+        <router-link to="/forgot-password">忘记密码？</router-link>
+      </div>
+      <div class="auth-link">
         没有账号？<router-link to="/register">去注册</router-link>
       </div>
+
+      <!-- 第三方登录（对接后端 /auth/oauth/{provider}/authorize） -->
+      <div class="oauth-divider"><span>或使用第三方登录</span></div>
+      <div class="oauth-buttons">
+        <button
+          v-for="p in oauthProviders"
+          :key="p.key"
+          type="button"
+          class="oauth-btn"
+          :disabled="oauthLoading !== ''"
+          @click="handleOAuthLogin(p.key)"
+        >
+          <span class="oauth-icon">{{ p.icon }}</span>
+          <span>{{ oauthLoading === p.key ? '跳转中...' : p.name }}</span>
+        </button>
+      </div>
+      <p v-if="oauthError" class="form-error">{{ oauthError }}</p>
     </div>
   </div>
 </template>
@@ -51,6 +74,7 @@ import { ref, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { login } from '@/api/modules/auth'
+import { getAuthorizeUrl } from '@/api/modules/oauth'
 
 const route = useRoute()
 const router = useRouter()
@@ -58,6 +82,33 @@ const userStore = useUserStore()
 
 const loading = ref(false)
 const errorMsg = ref('')
+// 注册/重置密码成功后跳转携带的提示
+const successMsg = ref(typeof route.query.msg === 'string' ? route.query.msg : '')
+
+// 第三方登录
+const oauthProviders = [
+  { key: 'wechat', name: '微信', icon: '💬' },
+  { key: 'douyin', name: '抖音', icon: '🎵' },
+  { key: 'alipay', name: '支付宝', icon: '💰' },
+]
+const oauthLoading = ref('')
+const oauthError = ref('')
+
+async function handleOAuthLogin(provider) {
+  if (oauthLoading.value) return
+  oauthError.value = ''
+  oauthLoading.value = provider
+  try {
+    const data = await getAuthorizeUrl(provider, 'login')
+    // 记录 state（CSRF 校验）与流程标记，供回调页使用
+    if (data.state) localStorage.setItem('oauth_state', data.state)
+    localStorage.setItem('oauth_action', 'login')
+    window.location.href = data.authorize_url
+  } catch (err) {
+    oauthError.value = err.response?.data?.detail || err.message || '获取授权链接失败，请重试'
+    oauthLoading.value = ''
+  }
+}
 
 const form = reactive({
   username: '',
@@ -177,6 +228,16 @@ async function handleLogin() {
   border: 1px solid #fdd;
 }
 
+.form-success {
+  color: #27ae60;
+  font-size: 13px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: #eafaf1;
+  border-radius: var(--radius-sm);
+  border: 1px solid #a9dfbf;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -249,5 +310,62 @@ async function handleLogin() {
 
 .auth-link a:hover {
   color: var(--primary-hover);
+}
+
+/* 第三方登录 */
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  margin-top: 24px;
+  color: var(--text-light);
+  font-size: 12px;
+}
+
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.oauth-divider span {
+  padding: 0 12px;
+}
+
+.oauth-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.oauth-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.oauth-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.oauth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.oauth-icon {
+  font-size: 16px;
 }
 </style>
